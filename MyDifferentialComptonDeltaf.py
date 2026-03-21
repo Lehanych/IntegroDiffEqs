@@ -189,7 +189,7 @@ if __name__ == "__main__":
     print(f"     Точек получено: {len(solution.t)}")
     f_solution = solution.y.reshape(2, solver.Nw, solver.Nx, Nxi)
 
-    outfile = os.getcwd() + "\DataDistF.npz"
+    outfile = os.path.join(os.getcwd() + "\\DataDistF.npz")
     print(outfile)
 
     # npzfile = np.load(outfile)
