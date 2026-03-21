@@ -9,8 +9,8 @@ import time
 from tqdm import tqdm
 import os
 
-xi = 100
-x = np.cos(math.pi / 2)
+xi = 10
+x = np.cos(math.pi/4)
 xtek = np.argmin(np.abs(solver.x_grid - x))
 
 

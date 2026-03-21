@@ -30,7 +30,7 @@ class KineticEqSolver:
         # коэффициент rho
         self.rho = self.n_e / (2 * np.pi) * alpha ** 2 / (4 ** 2 * np.pi ** 2)
         # коэффициент при ширине
-        coefEnGn = 4 * np.pi * alpha * beta ** 2 / (np.pi * math.sqrt(2 * beta + 1) * math.sqrt(2 * beta + 1) - 1)
+        coefEnGn = 4 * np.pi * alpha * beta ** 2 / (np.pi * math.sqrt(2 * beta + 1) * (math.sqrt(2 * beta + 1) - 1))
         # интеграл в ширине
         integrEnGn = \
             quad(lambda x: math.exp(-x) * (1 - x * (beta + 1) / beta) / math.sqrt(
@@ -125,7 +125,7 @@ class KineticEqSolver:
         for lambda_idx in range(2):
             for w_idx in range(self.Nw):
                 for x_idx in range(self.Nx):
-                    df_dxi[lambda_idx, w_idx, x_idx] = 20 * 10 ** 80 * self.compute_rhs_for_point(
+                    df_dxi[lambda_idx, w_idx, x_idx] = 20 * 10 ** 81 * self.compute_rhs_for_point(
                         xi, f, lambda_idx, w_idx, x_idx
                     )
         return df_dxi.flatten()
@@ -139,7 +139,7 @@ def initial_condition(lambda_idx, w, x):
     return A * w ** -ap * np.exp(-w / Efold)
 
 
-# Дискретизация по x
+# Дискретизация по xi
 Nxi = 50
 xi_max = 100
 xi = 5
@@ -151,12 +151,12 @@ xi_grid = np.linspace(0, xi_max, Nxi)
 xitek = np.argmin(xi_grid - xi)
 
 # Собираем правую часть/
-solver = KineticEqSolver(Nw=200, Nx=50,
-                         w_min=20 / 500, w_max=100 / 500,
+solver = KineticEqSolver(Nw=100, Nx=50,
+                         w_min=10 / 500, w_max=100 / 500,
                          x_min=-1, x_max=1, beta=0.05, T=0.003 / 0.5)
 
 # текущий номер x
-xtek = np.argmin(np.abs(solver.x_grid) - x)
+xtek = np.argmin(np.abs(solver.x_grid - x))
 
 # собираем начальные условия
 f0 = np.zeros((2, solver.Nw, solver.Nx))
