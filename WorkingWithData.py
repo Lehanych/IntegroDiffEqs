@@ -8,42 +8,71 @@ import math
 import time
 from tqdm import tqdm
 import os
+import csv
 
-xi = 10
-x = np.cos(math.pi/4)
+xi = 100
+x = np.cos(math.pi/2)
 xtek = np.argmin(np.abs(solver.x_grid - x))
 
 
 xitek = np.argmin(np.abs(xi_grid - xi))
 
-outfile = os.getcwd() + "\DataDistF.npz"
+outfile = os.path.join(os.getcwd(), "DataDistF1000.npz")
 f_solution = np.load(outfile)["arr_0"]
 
 
-ax = plt.figure(figsize=(10, 4))
-plt.subplot(1, 2, 1)
-omega = solver.w_grid * 500
 
+omega = solver.w_grid*500
+
+xitektab = list((np.argmin(np.abs(xi_grid - xi_i)) for xi_i in [0,50,100]))
+xtektab = list((np.argmin(np.abs(solver.x_grid - x_i)) for x_i in [0,0.5,1]))
 x_label = ['20', '50', '100']
 
-for lambda_idx, label in enumerate(['λ=1', 'λ=2']):
-    plt.subplot(1, 2, 1)
+SchSpectra0DegD1 = []
+with open('SchSpectra0DegD1.csv', newline='') as csvfile:
+    Schreader = csv.reader(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_NONNUMERIC)
+    for row in Schreader:
+        SchSpectra0DegD1.append(row)
+    SchSpectra0DegD1 = [list(row) for row in zip(*SchSpectra0DegD1)]
 
-    plt.xlabel('w, кэВ')
-    plt.ylabel('f(w)')
-    plt.yscale('log')
-    plt.xscale('log')
-    redfun = f_solution[lambda_idx, :, xtek, xitek]
-    plt.plot(omega, redfun, label=label)
+SchSpectra05DegD1 = []
+with open('SchSpectra05DegD1.csv', newline='') as csvfile:
+    Schreader = csv.reader(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_NONNUMERIC)
+    for row in Schreader:
+        SchSpectra05DegD1.append(row)
+    SchSpectra05DegD1 = [list(row) for row in zip(*SchSpectra05DegD1)]
 
-plt.subplot(1, 2, 2)
-plt.legend()
-for lambda_idx, label in enumerate(['λ=1', 'λ=2']):
-    redfun = initial_condition(lambda_idx, omega / 500, xtek)
-    plt.plot(omega, redfun, label=label)
+SchSpectra1DegD1 = []
+with open('SchSpectra1DegD1.csv', newline='') as csvfile:
+    Schreader = csv.reader(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_NONNUMERIC)
+    for row in Schreader:
+        SchSpectra1DegD1.append(row)
+    SchSpectra1DegD1 = [list(row) for row in zip(*SchSpectra1DegD1)]
 
-plt.subplot(1, 2, 1)
-plt.legend()
-plt.title('Функция распределения для x=%s' % round(solver.x_grid[xtek], 2))
+for xitek in xitektab:
+    i = 0
+    for xtek in xtektab:
+        ax = plt.figure(figsize=(5, 5))
+        match i:
+            case 0:
+                plt.plot(SchSpectra0DegD1[0], SchSpectra0DegD1[1])
+            case 1:
+                plt.plot(SchSpectra05DegD1[0], SchSpectra05DegD1[1])
+            case 2:
+                plt.plot(SchSpectra1DegD1[0], SchSpectra1DegD1[1])
+        i += 1
 
+        for lambda_idx, label in enumerate(['λ=1', 'λ=2']):
+            plt.xlabel('w, кэВ')
+            plt.ylabel('f(w)')
+            plt.yscale('log')
+            plt.xscale('log')
+           # plt.xlim(9, 10 ** 2)
+            plt.ylim(1,10**4)
+            redfun = f_solution[lambda_idx, :, xtek, xitek]
+            plt.plot(omega, redfun, label=label)
+        plt.legend()
+        plt.title('Функция распределения для x=%s и z=%s' % (round(solver.x_grid[xtek], 2),round(xi_grid[xitek], 2)))
 plt.show()
+
+
