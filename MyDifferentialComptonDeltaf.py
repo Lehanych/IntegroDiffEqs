@@ -7,6 +7,8 @@ import math
 import time
 from tqdm import tqdm
 import os
+
+
 # дискретизация по всем переменным
 
 
@@ -38,6 +40,7 @@ class KineticEqSolver:
                  0,
                  (math.sqrt(2 * beta + 1) - 1) ** 2 / (2 * beta))[0]
         self.EnGn = coefEnGn * math.fabs(integrEnGn)
+        print(self.EnGn ** 2)
 
     def compute_omega_derivatives_from_grid(self, f_slice):
         Nw = len(f_slice)
@@ -69,7 +72,7 @@ class KineticEqSolver:
         if lambdai == 0 and lambda_prime == 1:
             return rho * wtek ** 2 * xp ** 2 / DeltaM
         if lambdai == 1 and lambda_prime == 1:
-            return rho * wtek ** 4 / beta**2 * x ** 2 * xp ** 2 / DeltaM
+            return rho * wtek ** 4 / beta ** 2 * x ** 2 * xp ** 2 / DeltaM
         if lambdai == 1 and lambda_prime == 0:
             return rho * wtek ** 2 * x ** 2 / DeltaM
 
@@ -95,16 +98,15 @@ class KineticEqSolver:
                 term3 = 0.5 * (T ** 2 * d2f_dw2[w_idx] +
                                2 * T * df_dw[w_idx] +
                                f_lambda_xp[w_idx]) * (Delta_omega / T) ** 2
-
                 integrand = kernel * (term1 - term2 + term3)
 
                 weight = self.weights_x[xp_idx] * self.dx
                 result += integrand * weight
 
-                # if abs(x) < 1e-10:
-                #     result = 0
-                # else:
-                #     result = x
+                if abs(x) < 1e-10:
+                    result /= 1e-10
+                else:
+                    result /= x
                 return result
 
         # Формирование ОДУ
@@ -117,7 +119,7 @@ class KineticEqSolver:
         # для трекинга
         last_t, dt = state
         time.sleep(0.1)
-        n = int((xi-last_t)/dt)
+        n = int((xi - last_t) / dt)
         pbar.update(n)
         state[0] = last_t + dt * n
 
@@ -143,7 +145,7 @@ def initial_condition(lambda_idx, w, x):
 Nxi = 50
 xi_max = 100
 xi = 5
-x = np.cos(np.pi/4)
+x = np.cos(np.pi / 4)
 
 xi_grid = np.linspace(0, xi_max, Nxi)
 
@@ -175,26 +177,25 @@ for lambda_idx in range(2):
 
 if __name__ == "__main__":
     # Решение уравнения
-    with tqdm(total = 1000, unit = "‰") as pbar:
+    with tqdm(total=1000, unit="‰") as pbar:
         solution = solve_ivp(
             lambda z, f, pbar, state: solver.rhs_system(z, f, pbar, state),
             [0, xi_max],
             f0.flatten(),
-            method='RK23',
+            method='RK45',
             t_eval=xi_grid,
-            args=[pbar, [0, (xi_max-0)/1000]]
+            args=[pbar, [0, (xi_max - 0) / 1000]]
         )
 
     print(f"     Успех: {solution.success}")
     print(f"     Точек получено: {len(solution.t)}")
     f_solution = solution.y.reshape(2, solver.Nw, solver.Nx, Nxi)
 
-    outfile = os.path.join(os.getcwd() + "\\DataDistF.npz")
-    print(outfile)
+    outfile = os.path.join(os.getcwd(), "DataDistFdw" + str(solver.dw) + "Nxi" + str(Nxi) + "ximax" + str(xi_max) + "dx" + str(round(solver.dx, 1)) + ".npz")
 
     # npzfile = np.load(outfile)
     # f_solution = npzfile
-    np.savez(outfile, f_solution)
+    np.savez(outfile, f_solution=f_solution, x_grid=solver.x_grid, xi_grid=xi_grid, w_grid=solver.w_grid)
 
     ax = plt.figure(figsize=(10, 4))
     plt.subplot(1, 2, 1)
@@ -222,3 +223,5 @@ if __name__ == "__main__":
     plt.title('Функция распределения для x=%s' % round(solver.x_grid[xtek], 2))
 
     plt.show()
+
+## Рисуем функцию phi

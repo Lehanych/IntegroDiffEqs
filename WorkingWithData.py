@@ -1,4 +1,4 @@
-from MyDifferentialComptonDeltaf import solver, initial_condition, xi_grid
+# from MyDifferentialComptonDeltaf import solver, initial_condition, xi_grid
 import numpy as np
 from scipy.integrate import solve_ivp, quad
 from scipy.interpolate import interp2d
@@ -10,22 +10,31 @@ from tqdm import tqdm
 import os
 import csv
 
+
+outfile = os.path.join(os.getcwd(), "DataDistFdw0.045Nxi15ximax100dx0.2.npz")
+loadedfile = np.load(outfile)
+f_solution = loadedfile["f_solution"]
+
+x_grid = loadedfile["x_grid"]
+xi_grid = loadedfile["xi_grid"]
+w_grid = loadedfile["w_grid"]
+
+
+# Фиксируем z
 xi = 100
+
+# Фиксируем x
 x = np.cos(math.pi/2)
-xtek = np.argmin(np.abs(solver.x_grid - x))
 
-
+# Вычислени позиции текущего z и x
+xtek = np.argmin(np.abs(x_grid - x))
 xitek = np.argmin(np.abs(xi_grid - xi))
 
-outfile = os.path.join(os.getcwd(), "DataDistF1000.npz")
-f_solution = np.load(outfile)["arr_0"]
-
-
-
-omega = solver.w_grid*500
+omega = w_grid*500
 
 xitektab = list((np.argmin(np.abs(xi_grid - xi_i)) for xi_i in [0,50,100]))
-xtektab = list((np.argmin(np.abs(solver.x_grid - x_i)) for x_i in [0,0.5,1]))
+print(xitektab)
+xtektab = list((np.argmin(np.abs(x_grid - x_i)) for x_i in [0,0.5,1]))
 x_label = ['20', '50', '100']
 
 SchSpectra0DegD1 = []
@@ -55,11 +64,11 @@ for xitek in xitektab:
         ax = plt.figure(figsize=(5, 5))
         match i:
             case 0:
-                plt.plot(SchSpectra0DegD1[0], SchSpectra0DegD1[1])
+                plt.plot(SchSpectra0DegD1[0], SchSpectra0DegD1[1], linestyle='dashed')
             case 1:
-                plt.plot(SchSpectra05DegD1[0], SchSpectra05DegD1[1])
+                plt.plot(SchSpectra05DegD1[0], SchSpectra05DegD1[1], linestyle='dashed')
             case 2:
-                plt.plot(SchSpectra1DegD1[0], SchSpectra1DegD1[1])
+                plt.plot(SchSpectra1DegD1[0], SchSpectra1DegD1[1], linestyle='dashed')
         i += 1
 
         for lambda_idx, label in enumerate(['λ=1', 'λ=2']):
@@ -72,7 +81,7 @@ for xitek in xitektab:
             redfun = f_solution[lambda_idx, :, xtek, xitek]
             plt.plot(omega, redfun, label=label)
         plt.legend()
-        plt.title('Функция распределения для x=%s и z=%s' % (round(solver.x_grid[xtek], 2),round(xi_grid[xitek], 2)))
+        plt.title('Функция распределения для x=%s и z=%s' % (round(x_grid[xtek], 2),round(xi_grid[xitek], 2)))
 plt.show()
 
 
