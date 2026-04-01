@@ -170,7 +170,7 @@ xitek = np.argmin(xi_grid - xi)
 
 # Собираем правую часть/
 solver = KineticEqSolver(Nw=100, Nx=50,
-                         w_min=10 / 500, w_max=35 / 500,
+                         w_min=10 / 500, w_max=100 / 500,
                          x_min=-1, x_max=1, beta=0.05, T=0.003 / 0.5)
 
 # текущий номер x
