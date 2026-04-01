@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 from scipy.integrate import solve_ivp, quad
 from scipy.interpolate import interp2d
 import matplotlib.pyplot as plt
@@ -7,6 +8,7 @@ import math
 import time
 from tqdm import tqdm
 import os
+import sys
 
 
 # дискретизация по всем переменным
@@ -16,6 +18,7 @@ class KineticEqSolver:
     def __init__(self, Nw, Nx, w_min, w_max, x_min, x_max, beta, T):
         # сетка
         self.T = T
+        self.ForCheck = 0
         self.beta = beta
         self.w_grid = np.linspace(w_min, w_max, Nw)
         self.x_grid = np.linspace(x_min, x_max, Nx)
@@ -30,7 +33,7 @@ class KineticEqSolver:
         # концентрация
         self.n_e = beta / (2 * np.pi) ** 2 * quad(lambda pz: 1 / math.exp(1 / T * math.sqrt(1 + pz * pz) + 1), -2, 2)[0]
         # коэффициент rho
-        self.rho = self.n_e / (2 * np.pi) * alpha ** 2 / (4 ** 2 * np.pi ** 2)
+        self.rho = 20 * 10 ** 81 * self.n_e / (2 * np.pi) * alpha ** 2 / (4 ** 2 * np.pi ** 2)
         # коэффициент при ширине
         coefEnGn = 4 * np.pi * alpha * beta ** 2 / (np.pi * math.sqrt(2 * beta + 1) * (math.sqrt(2 * beta + 1) - 1))
         # интеграл в ширине
@@ -93,20 +96,25 @@ class KineticEqSolver:
                 df_dw, d2f_dw2 = self.compute_omega_derivatives_from_grid(f_lambda_xp)
 
                 kernel = self.phi_func(w_idx, lambda_idx, lambda_prime, x, xp)
+
                 term1 = f_lambda_xp[w_idx] - f[lambda_idx, w_idx, x_idx]
                 term2 = (T * df_dw[w_idx] + f_lambda_xp[w_idx]) * (Delta_omega / T)
                 term3 = 0.5 * (T ** 2 * d2f_dw2[w_idx] +
                                2 * T * df_dw[w_idx] +
                                f_lambda_xp[w_idx]) * (Delta_omega / T) ** 2
+                # np.seterr(all='warn')
+                # warnings.filterwarnings("error")
                 integrand = kernel * (term1 - term2 + term3)
-
+                if np.abs(self.ForCheck) < np.abs(integrand):
+                    self.ForCheck = integrand
+                    print(integrand, kernel, term1, term2, term3)
                 weight = self.weights_x[xp_idx] * self.dx
                 result += integrand * weight
 
                 if abs(x) < 1e-10:
-                    result /= 1e-10
+                    result = 0
                 else:
-                    result /= x
+                    result /= np.abs(x)
                 return result
 
         # Формирование ОДУ
@@ -127,9 +135,17 @@ class KineticEqSolver:
         for lambda_idx in range(2):
             for w_idx in range(self.Nw):
                 for x_idx in range(self.Nx):
-                    df_dxi[lambda_idx, w_idx, x_idx] = 20 * 10 ** 81 * self.compute_rhs_for_point(
+                    df_dxi[lambda_idx, w_idx, x_idx] = self.compute_rhs_for_point(
                         xi, f, lambda_idx, w_idx, x_idx
                     )
+                # except OverflowError:
+                #     print(df_dxi[lambda_idx, w_idx, x_idx])
+                #     print(xi, lambda_idx, self.w_grid[w_idx], self.x_grid[x_idx])
+                #     print(self.compute_rhs_for_point(
+                #         xi, f, lambda_idx, w_idx, x_idx
+                #     ))
+                #     print(self.phi_func(w_idx, lambda_idx, 0, self.x_grid[x_idx], 0))
+                #     sys.exit()
         return df_dxi.flatten()
 
 
@@ -154,7 +170,7 @@ xitek = np.argmin(xi_grid - xi)
 
 # Собираем правую часть/
 solver = KineticEqSolver(Nw=100, Nx=50,
-                         w_min=10 / 500, w_max=100 / 500,
+                         w_min=10 / 500, w_max=35 / 500,
                          x_min=-1, x_max=1, beta=0.05, T=0.003 / 0.5)
 
 # текущий номер x
@@ -163,7 +179,7 @@ xtek = np.argmin(np.abs(solver.x_grid - x))
 # собираем начальные условия
 f0 = np.zeros((2, solver.Nw, solver.Nx))
 
-for lambda_idx in range(2):
+for lambda_idx in [0, 1]:
     for w_idx, w in enumerate(solver.w_grid):
         for x_idx, x in enumerate(solver.x_grid):
             f0[lambda_idx, w_idx, x_idx] = initial_condition(lambda_idx, w, x)
@@ -187,11 +203,15 @@ if __name__ == "__main__":
             args=[pbar, [0, (xi_max - 0) / 1000]]
         )
 
+    print(solver.ForCheck)
     print(f"     Успех: {solution.success}")
     print(f"     Точек получено: {len(solution.t)}")
+    print(f"     Сообщение: {solution.message}")
     f_solution = solution.y.reshape(2, solver.Nw, solver.Nx, Nxi)
 
-    outfile = os.path.join(os.getcwd(), "DataDistFdw" + str(solver.dw) + "Nxi" + str(Nxi) + "ximax" + str(xi_max) + "dx" + str(round(solver.dx, 1)) + ".npz")
+    outfile = os.path.join(os.getcwd(),
+                           "DataDistFdw" + str(solver.dw) + "Nxi" + str(Nxi) + "ximax" + str(xi_max) + "dx" + str(
+                               round(solver.dx, 1)) + ".npz")
 
     # npzfile = np.load(outfile)
     # f_solution = npzfile
