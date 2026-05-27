@@ -11,7 +11,7 @@ import os
 import csv
 
 
-outfile = os.path.join(os.getcwd(), "DataDistFdw0.045Nxi15ximax100dx0.2.npz")
+outfile = os.path.join(os.getcwd(), "DataDistFdw0.0018181818181818195Nxi50ximax100dx0.0.npz")
 loadedfile = np.load(outfile)
 f_solution = loadedfile["f_solution"]
 
@@ -21,7 +21,7 @@ w_grid = loadedfile["w_grid"]
 
 
 # Фиксируем z
-xi = 100
+xi = 1000
 
 # Фиксируем x
 x = np.cos(math.pi/2)
@@ -32,7 +32,7 @@ xitek = np.argmin(np.abs(xi_grid - xi))
 
 omega = w_grid*500
 
-xitektab = list((np.argmin(np.abs(xi_grid - xi_i)) for xi_i in [0,50,100]))
+xitektab = list((np.argmin(np.abs(xi_grid - xi_i)) for xi_i in [0,500,1000]))
 print(xitektab)
 xtektab = list((np.argmin(np.abs(x_grid - x_i)) for x_i in [0,0.5,1]))
 x_label = ['20', '50', '100']

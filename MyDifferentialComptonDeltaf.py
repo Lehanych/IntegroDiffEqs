@@ -43,7 +43,29 @@ class KineticEqSolver:
                  0,
                  (math.sqrt(2 * beta + 1) - 1) ** 2 / (2 * beta))[0]
         self.EnGn = coefEnGn * math.fabs(integrEnGn)
-        print(self.EnGn ** 2)
+
+        # предвычисление функций phi
+        self.phi = np.zeros((2, 2, self.Nw, self.Nx, self.Nx))
+        rho = self.rho
+
+        for lambda_idx in range(2):
+            for lambda_prime in range(2):
+                for w_idx in range(self.Nw):
+                    wtek = self.w_grid[w_idx]
+                    for x_idx in range(self.Nx):
+                        x = self.x_grid[x_idx]
+                        DeltaM = (wtek ** 2 * (1 - x ** 2) + 2 * wtek - 2 * self.beta) ** 2 + self.EnGn ** 2 / 4
+                        for xp_idx in range(self.Nx):
+                            xp = self.x_grid[xp_idx]
+                            if lambda_idx == 0 and lambda_prime == 0:
+                                self.phi[lambda_idx, lambda_prime, w_idx, x_idx, xp_idx] = rho * beta ** 2 / DeltaM
+                            elif lambda_idx == 0 and lambda_prime == 1:
+                                self.phi[lambda_idx, lambda_prime, w_idx, x_idx, xp_idx] = rho * wtek ** 2 * xp ** 2 / DeltaM
+                            elif lambda_idx == 1 and lambda_prime == 1:
+                                self.phi[lambda_idx, lambda_prime, w_idx, x_idx, xp_idx]= rho * wtek ** 4 / beta ** 2 * x ** 2 * xp ** 2 / DeltaM
+                            elif lambda_idx == 1 and lambda_prime == 0:
+                                self.phi[lambda_idx, lambda_prime, w_idx, x_idx, xp_idx] = rho * wtek ** 2 * x ** 2 / DeltaM
+        print("функции фи вычислены!")
 
     def compute_omega_derivatives_from_grid(self, f_slice):
         Nw = len(f_slice)
@@ -81,62 +103,67 @@ class KineticEqSolver:
 
     # вычисление правой части
 
-    def compute_rhs_for_point(self, xi, f, lambda_idx, w_idx, x_idx):
+    def compute_rhs_for_point(self, xi,f, df_dw_all, d2f_dw2_all, lambda_idx, w_idx, x_idx):
         x = self.x_grid[x_idx]
         beta = self.beta
         Delta_omega = self.w_grid[w_idx] - beta
         result = 0
         T = self.T
         for lambda_prime in [0, 1]:
-            for xp_idx in range(self.Nx):
-                xp = self.x_grid[xp_idx]
+            f_lambda_xp = f[lambda_prime, w_idx, :]
+            df_dw, d2f_dw2 = df_dw_all[lambda_prime,w_idx,:], d2f_dw2_all[lambda_prime,w_idx,:]
+            kernel = self.phi[lambda_idx, lambda_prime, w_idx, x_idx, :]
+            term1 = - f[lambda_idx, w_idx, x_idx]
+            term2 = 0
+            term3 = 0
+            # term1 = f_lambda_xp[w_idx] - f[lambda_idx, w_idx, x_idx]
+            # term2 = (T * df_dw[w_idx] + f_lambda_xp[w_idx]) * (Delta_omega / T)
+            # term3 = 0.5 * (T ** 2 * d2f_dw2[w_idx] +
+            #                2 * T * df_dw[w_idx] +
+            #                f_lambda_xp[w_idx]) * (Delta_omega / T) ** 2
+            # np.seterr(all='warn')
+            # warnings.filterwarnings("error")
+            integrand = kernel * (term1 - term2 + term3)
+            result += np.sum(
+                integrand * self.weights_x
+            ) * self.dx
 
-                f_lambda_xp = f[lambda_prime, :, xp_idx]
-
-                df_dw, d2f_dw2 = self.compute_omega_derivatives_from_grid(f_lambda_xp)
-
-                kernel = self.phi_func(w_idx, lambda_idx, lambda_prime, x, xp)
-
-                term1 = f_lambda_xp[w_idx] - f[lambda_idx, w_idx, x_idx]
-                term2 = (T * df_dw[w_idx] + f_lambda_xp[w_idx]) * (Delta_omega / T)
-                term3 = 0.5 * (T ** 2 * d2f_dw2[w_idx] +
-                               2 * T * df_dw[w_idx] +
-                               f_lambda_xp[w_idx]) * (Delta_omega / T) ** 2
-                # np.seterr(all='warn')
-                # warnings.filterwarnings("error")
-                integrand = kernel * (term1 - term2 + term3)
-                if np.abs(self.ForCheck) < np.abs(integrand):
-                    self.ForCheck = integrand
-                    print(integrand, kernel, term1, term2, term3)
-                weight = self.weights_x[xp_idx] * self.dx
-                result += integrand * weight
-
-                if abs(x) < 1e-10:
-                    result = 0
-                else:
-                    result /= np.abs(x)
-                return result
+        if abs(x) < 1e-10:
+            result = 0
+        else:
+            result /= np.abs(x)
+        return result
 
         # Формирование ОДУ
 
     def rhs_system(self, xi, f_flat, pbar, state):
         # Восстановление 3D массива из плоского вектора
         f = f_flat.reshape(2, self.Nw, self.Nx)
+        df_dw_all = np.zeros_like(f)
+        d2f_dw2_all = np.zeros_like(f)
+
+        for lambda_idx in range(2):
+            for x_idx in range(self.Nx):
+                df_dw_all[lambda_idx, :, x_idx], \
+                    d2f_dw2_all[lambda_idx, :, x_idx] = \
+                    self.compute_omega_derivatives_from_grid(
+                        f[lambda_idx, :, x_idx]
+                    )
         df_dxi = np.zeros_like(f)
+
 
         # для трекинга
         last_t, dt = state
-        time.sleep(0.1)
+        # time.sleep(0.1)
         n = int((xi - last_t) / dt)
         pbar.update(n)
         state[0] = last_t + dt * n
-
         # Для каждой точки вычисляем производную по ξ
         for lambda_idx in range(2):
             for w_idx in range(self.Nw):
                 for x_idx in range(self.Nx):
                     df_dxi[lambda_idx, w_idx, x_idx] = self.compute_rhs_for_point(
-                        xi, f, lambda_idx, w_idx, x_idx
+                        xi, f, df_dw_all, d2f_dw2_all, lambda_idx, w_idx, x_idx
                     )
                 # except OverflowError:
                 #     print(df_dxi[lambda_idx, w_idx, x_idx])
